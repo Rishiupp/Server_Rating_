@@ -26,8 +26,11 @@ exports.generateExcel = async (req, res, next) => {
     // 2. Assemble data row
     const row = { Bounces, Gambling, Salary, DOB, Company_type, City };
 
-    // 3. Delegate to service
-    await excelService.buildAndSendWorkbook([row], res);
+    // 3. Append to the existing Excel file
+    await excelService.appendToWorkbook([row]);
+
+    // 4. Send a simple JSON response
+    return res.json({ message: 'Row appended to rating.xlsx successfully' });
   } catch (err) {
     next(err);
   }
