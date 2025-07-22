@@ -6,29 +6,54 @@ const filePath = path.join(__dirname, '../data/rating.xlsx');
 
 exports.appendToWorkbook = async (rows) => {
   const workbook = new ExcelJS.Workbook();
+  let sheet;
 
-  // 1. If the file exists, load it; otherwise create & set headers
-  if (fs.existsSync(filePath)) {
-    await workbook.xlsx.readFile(filePath);
+  // Load or create
+  if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0) {
+    try {
+      await workbook.xlsx.readFile(filePath);
+      sheet = workbook.getWorksheet('Ratings');
+    } catch (err) {
+      console.warn('Existing file unreadable – starting fresh.');
+      sheet = workbook.addWorksheet('Ratings');
+    }
   } else {
-    const sheet = workbook.addWorksheet('Ratings');
+    sheet = workbook.addWorksheet('Ratings');
+  }
+
+  // Define headers if first time
+  if (sheet.columnCount === 0) {
     sheet.columns = [
-      { header: 'Bounces',      key: 'Bounces',      width: 15 },
-      { header: 'Gambling',     key: 'Gambling',     width: 15 },
-      { header: 'Salary',       key: 'Salary',       width: 20 },
-      { header: 'DOB',          key: 'DOB',          width: 15 },
-      { header: 'Company Type', key: 'Company_type', width: 20 },
-      { header: 'City',         key: 'City',         width: 20 }
+      { header: 'Lead ID',       key: 'LeadId',       width: 15 },
+      { header: 'Name',          key: 'Name',         width: 25 },
+      { header: 'Bounces',       key: 'Bounces',      width: 15 },
+      { header: 'Gambling',      key: 'Gambling',     width: 15 },
+      { header: 'Salary',        key: 'Salary',       width: 20 },
+      { header: 'DOB',           key: 'DOB',          width: 15 },
+      { header: 'Company Type',  key: 'Company_type', width: 20 },
+      { header: 'City',          key: 'City',         width: 20 }
     ];
   }
 
-  // 2. Get (or re-add) the worksheet
-  const sheet = workbook.getWorksheet('Ratings') 
-              || workbook.addWorksheet('Ratings');
-
-  // 3. Append each new row
+  // Append rows
   rows.forEach(r => sheet.addRow(r));
 
-  // 4. Save back to disk
-  await workbook.xlsx.writeFile(filePath);
+  // Ensure directory
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  // Write to a temp file first
+  const tmpPath = filePath + '.tmp';
+  await workbook.xlsx.writeFile(tmpPath);
+
+  // Atomically replace the real file
+  try {
+    fs.renameSync(tmpPath, filePath);
+  } catch (renameErr) {
+    console.warn('Rename failed – falling back to copy:', renameErr);
+    fs.copyFileSync(tmpPath, filePath);
+    fs.unlinkSync(tmpPath);
+  }
 };
