@@ -1,9 +1,10 @@
-// controllers/ratingController.js
 const excelService = require('../services/excelService');
+const path         = require('path');
+
+const filePath = path.join(__dirname, '../data/rating.xlsx');
 
 exports.generateExcel = async (req, res, next) => {
   try {
-    // 1. Validate payload
     const {
       LeadId,
       Name,
@@ -15,7 +16,6 @@ exports.generateExcel = async (req, res, next) => {
       City
     } = req.body;
 
-    // Ensure none of the required fields are missing
     if (
       LeadId == null ||
       !Name ||
@@ -29,14 +29,23 @@ exports.generateExcel = async (req, res, next) => {
       return res.status(400).json({ error: 'Missing required field(s)' });
     }
 
-    // 2. Assemble data row (match the service’s column keys exactly)
     const row = { LeadId, Name, Bounces, Gambling, Salary, DOB, Company_type, City };
-
-    // 3. Append to the existing Excel file
     await excelService.appendToWorkbook([row]);
+    return res.json({ message: 'Row appended to rating.xlsx successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
 
-    // 4. Return success
-    res.json({ message: 'Row appended to rating.xlsx successfully' });
+exports.downloadExcel = async (req, res, next) => {
+  try {
+    // Ensure workbook exists (creates if missing)
+    await excelService.ensureWorkbookExists();
+
+    // Send the file as an attachment
+    res.download(filePath, 'rating.xlsx', (err) => {
+      if (err) next(err);
+    });
   } catch (err) {
     next(err);
   }
